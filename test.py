@@ -14,7 +14,10 @@ PTNet.cuda()
 PTNet.eval()
 PTNet.load_state_dict(torch.load(os.path.join(opt.checkpoints_dir, opt.name, opt.whichmodel)))
 
-test_path = os.path.join(opt.dataroot, 'test_A')
+if opt.dir_A:
+    test_path = opt.dir_A
+else:
+    test_path = os.path.join(opt.dataroot, 'test_A')
 
 des = os.path.join(opt.dataroot, opt.name+'_'+opt.whichmodel)
 if not os.path.exists(des):

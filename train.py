@@ -8,6 +8,12 @@ import torch
 from torch.autograd import Variable
 from collections import OrderedDict
 import math
+import torch.backends.cudnn as cudnn
+
+# Ottimizzazione CUDNN: seleziona l'algoritmo di convoluzione più veloce
+# (Perfetto dato che la nostra patch_size è sempre fissa a 64x64x64)
+cudnn.benchmark = True
+
 from models.models import create_model
 import torch.nn as nn
 from options.train_options import TrainOptions
@@ -95,8 +101,8 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         ##############################################################################
         
         with torch.cuda.amp.autocast():
-            input_image = Variable(data['img_A'].cuda())
-            target_image = Variable(data['img_B'].cuda())
+            input_image = Variable(data['img_A'].cuda(non_blocking=True))
+            target_image = Variable(data['img_B'].cuda(non_blocking=True))
 
             # Synthesize and MSE loss
             generated = PTNet(input_image)
@@ -193,3 +199,8 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
             print(param_group['lr'])
         for param_group in optimizer_D.param_groups:
             param_group['lr'] = ler
+
+print('Training finished! Saving final model...')
+torch.save(PTNet.state_dict(), os.path.join(opt.checkpoints_dir, opt.name, 'PTNet_final.pth'))
+torch.save(D.state_dict(), os.path.join(opt.checkpoints_dir, opt.name, 'D_final.pth'))
+print('Final model saved in', os.path.join(opt.checkpoints_dir, opt.name))
