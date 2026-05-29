@@ -102,8 +102,8 @@ class AlignedDataset(BaseDataset):
         tmp_scansA = norm_img(tmp_scansA, self.opt.norm_perc)
         tmp_scansB = norm_img(tmp_scansB, self.opt.norm_perc)
 
-        tmp_scansA = torch.unsqueeze(torch.from_numpy(tmp_scansA), 0)
-        tmp_scansB = torch.unsqueeze(torch.from_numpy(tmp_scansB), 0)
+        tmp_scansA = torch.unsqueeze(torch.from_numpy(tmp_scansA).float(), 0)
+        tmp_scansB = torch.unsqueeze(torch.from_numpy(tmp_scansB).float(), 0)
         _, x1, y1, z1 = tmp_scansA.shape
 
         if self.opt.dimension.startswith('2'):
