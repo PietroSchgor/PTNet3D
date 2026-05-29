@@ -75,6 +75,8 @@ save_delta = total_steps % opt.save_latest_freq
 # Training code
 ##############################################################################
 
+scaler = torch.cuda.amp.GradScaler()
+
 for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
     epoch_start_time = time.time()
     if epoch != start_epoch:
@@ -89,55 +91,59 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         save_fake = total_steps % opt.display_freq == display_delta
 
         ##############################################################################
-        # Forward Pass
+        # Forward Pass with AMP
         ##############################################################################
+        
+        with torch.cuda.amp.autocast():
+            input_image = Variable(data['img_A'].cuda())
+            target_image = Variable(data['img_B'].cuda())
 
-        input_image = Variable(data['img_A'].cuda())
-        target_image = Variable(data['img_B'].cuda())
+            # Synthesize and MSE loss
+            generated = PTNet(input_image)
+            loss_mse = mse(generated, target_image)
 
-        # Synthesize and MSE loss
-        generated = PTNet(input_image)
-        loss_mse = mse(generated, target_image)
+            # Fake Detection and Loss
+            pred_fake_pool = discriminate(D, fake_pool, input_image, generated, use_pool=True)
+            loss_D_fake = criterionGAN(pred_fake_pool, False)
 
-        # Fake Detection and Loss
-        pred_fake_pool = discriminate(D, fake_pool, input_image, generated, use_pool=True)
-        loss_D_fake = criterionGAN(pred_fake_pool, False)
+            # Real Detection and Loss
+            pred_real = discriminate(D, fake_pool, input_image, target_image)
+            loss_D_real = criterionGAN(pred_real, True)
 
-        # Real Detection and Loss
-        pred_real = discriminate(D, fake_pool, input_image, target_image)
-        loss_D_real = criterionGAN(pred_real, True)
+            # GAN loss (Fake Passability Loss)
+            pred_fake = D.forward(torch.cat((input_image, generated), dim=1))
+            loss_G_GAN = criterionGAN(pred_fake, True)
 
-        # GAN loss (Fake Passability Loss)
-        pred_fake = D.forward(torch.cat((input_image, generated), dim=1))
-        loss_G_GAN = criterionGAN(pred_fake, True)
+            # GAN feature matching loss
+            loss_G_GAN_Feat, loss_G_GAN_Feat_ext = feature_loss(opt, target_image, generated, pred_real, pred_fake,
+                                                                ext_discriminator)
 
-        # GAN feature matching loss
-        loss_G_GAN_Feat, loss_G_GAN_Feat_ext = feature_loss(opt, target_image, generated, pred_real, pred_fake,
-                                                            ext_discriminator)
-
-        # Compute overall loss
-        loss_D = (loss_D_fake + loss_D_real) * 0.5
-        loss_G = loss_mse * 100.0 + loss_G_GAN + loss_G_GAN_Feat_ext * 10.0 + loss_G_GAN_Feat * 10.0
-        loss_dict = dict(
-            zip(['MSE', 'G_GAN', 'G_GAN_Feat_ext', 'G_GAN_Feat', 'D_fake', 'D_real'], [loss_mse.item(),
-                                                                                       loss_G_GAN.item(),
-                                                                                       loss_G_GAN_Feat_ext.item(),
-                                                                                       loss_G_GAN_Feat.item(),
-                                                                                       loss_D_fake.item(),
-                                                                                       loss_D_real.item()]), )
+            # Compute overall loss
+            loss_D = (loss_D_fake + loss_D_real) * 0.5
+            loss_G = loss_mse * 100.0 + loss_G_GAN + loss_G_GAN_Feat_ext * 10.0 + loss_G_GAN_Feat * 10.0
+            
+            loss_dict = dict(
+                zip(['MSE', 'G_GAN', 'G_GAN_Feat_ext', 'G_GAN_Feat', 'D_fake', 'D_real'], [loss_mse.item(),
+                                                                                           loss_G_GAN.item(),
+                                                                                           loss_G_GAN_Feat_ext.item(),
+                                                                                           loss_G_GAN_Feat.item(),
+                                                                                           loss_D_fake.item(),
+                                                                                           loss_D_real.item()]), )
         ##############################################################################
-        # Backward
+        # Backward with AMP
         ##############################################################################
 
         # update generator weights
         optimizer_PTNet.zero_grad()
-        loss_G.backward()
-        optimizer_PTNet.step()
+        scaler.scale(loss_G).backward()
+        scaler.step(optimizer_PTNet)
 
         # update discriminator weights
         optimizer_D.zero_grad()
-        loss_D.backward()
-        optimizer_D.step()
+        scaler.scale(loss_D).backward()
+        scaler.step(optimizer_D)
+        
+        scaler.update()
 
         ##############################################################################
         # Display results, print out loss, and save latest model
