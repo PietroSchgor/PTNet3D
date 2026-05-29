@@ -15,12 +15,15 @@ class BaseOptions():
         self.parser.add_argument('--checkpoints_dir', type=str, default='tmp', help='models are saved here')
         self.parser.add_argument('--batchSize', type=int, default=4, help='input batch size')
         self.parser.add_argument('--dataroot', type=str, default='tmp',help='path of datasets, see readme for data structure')
+        self.parser.add_argument('--dir_A', type=str, default='', help='specific path for domain A (e.g. T2 data)')
+        self.parser.add_argument('--dir_B', type=str, default='', help='specific path for domain B (e.g. T1-FLAIR data)')
+        self.parser.add_argument('--code_list', type=str, default='', help='path to text file containing common codes for pairing')
         self.parser.add_argument('--input_nc', type=int, default=1, help='# of input image channels')
         self.parser.add_argument('--nThreads', default=0, type=int, help='# threads for loading data')
         self.parser.add_argument('--dimension', default='3D', type=str, help='# 2D or 3D PTNet')
 
         # dataloading:
-        self.parser.add_argument('--extension', type=str, default='.nii.gz', help='file extension (*.nii/*.nii.gz(')
+        self.parser.add_argument('--extension', type=str, default='.nii', help='file extension (*.nii/*.nii.gz)')
         self.parser.add_argument('--norm_perc', type=float, default=99.95, help='intensity over norm_perc% percentile will be set as 1 while performing 0-1 normalization')
         self.parser.add_argument('--patch_size', type=tuple, default=(64, 64, 64),
                                  help='size of 3D patch')

@@ -17,18 +17,48 @@ class AlignedDataset(BaseDataset):
     def initialize(self, opt):
         self.opt = opt
         self.root = opt.dataroot
-        ###
-        ### input A (source domain)
-        dir_A = '_A'
-        self.dir_A = os.path.join(opt.dataroot, opt.phase + dir_A)
-        self.A_paths = sorted(make_dataset(self.dir_A, opt.extension))
+        
+        # Override dir_A and dir_B if provided via command line arguments
+        if hasattr(opt, 'dir_A') and opt.dir_A != '':
+            self.dir_A = opt.dir_A
+        else:
+            self.dir_A = os.path.join(opt.dataroot, opt.phase + '_A')
+            
+        if hasattr(opt, 'dir_B') and opt.dir_B != '':
+            self.dir_B = opt.dir_B
+        else:
+            self.dir_B = os.path.join(opt.dataroot, opt.phase + '_B')
+
+        all_A_paths = make_dataset(self.dir_A, opt.extension)
+        all_B_paths = make_dataset(self.dir_B, opt.extension)
+
+        if hasattr(opt, 'code_list') and opt.code_list != '':
+            # Load codes from the text file
+            with open(opt.code_list, 'r') as f:
+                codes = [line.strip() for line in f.readlines() if line.strip()]
+            
+            self.A_paths = []
+            self.B_paths = []
+            
+            for code in codes:
+                # Find matching file in A
+                matched_A = [p for p in all_A_paths if code in os.path.basename(p)]
+                # Find matching file in B
+                matched_B = [p for p in all_B_paths if code in os.path.basename(p)]
+                
+                if matched_A and matched_B:
+                    # Append the first match
+                    self.A_paths.append(matched_A[0])
+                    self.B_paths.append(matched_B[0])
+                else:
+                    print(f"Warning: Could not find matching pairs for code {code}")
+        else:
+            self.A_paths = sorted(all_A_paths)
+            self.B_paths = sorted(all_B_paths)
+
         assert self.A_paths, 'modality A can not find files with extension ' + opt.extension
-        ### input B (target domain)
-        ### if you are converting T1w to T2w, please put training T1w scans into train_A and training T2w scans into train_B
-        dir_B = '_B'
-        self.dir_B = os.path.join(opt.dataroot, opt.phase + dir_B)
-        self.B_paths = sorted(make_dataset(self.dir_B, opt.extension))
         assert self.B_paths, 'modality B can not find files with extension ' + opt.extension
+        assert len(self.A_paths) == len(self.B_paths), 'modality A and B must have the same number of files'
 
         self.dataset_size = len(self.A_paths)
 
