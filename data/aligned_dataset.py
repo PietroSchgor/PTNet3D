@@ -43,6 +43,22 @@ class AlignedDataset(BaseDataset):
             with open(opt.code_list, 'r') as f:
                 codes = [line.strip() for line in f.readlines() if line.strip()]
             
+            # --- NUOVO DEBUG ---
+            codes_in_A = set([os.path.basename(p).split('_')[0] for p in all_A_paths])
+            codes_in_B = set([os.path.basename(p).split('_')[0] for p in all_B_paths])
+            target_codes = set(codes)
+            
+            print(f"DEBUG INFO MATCHER:")
+            print(f"- Codici richiesti (dal txt): {len(target_codes)}")
+            print(f"- Codici estratti da A: {len(codes_in_A)}")
+            print(f"- Codici estratti da B: {len(codes_in_B)}")
+            print(f"- Match tra txt e A: {len(target_codes.intersection(codes_in_A))}")
+            print(f"- Match tra txt e B: {len(target_codes.intersection(codes_in_B))}")
+            print(f"- Esempi txt: {list(target_codes)[:5]}")
+            print(f"- Esempi in A: {list(codes_in_A)[:5]}")
+            print(f"- Esempi in B: {list(codes_in_B)[:5]}")
+            # -------------------
+
             self.A_paths = []
             self.B_paths = []
             

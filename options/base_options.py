@@ -25,8 +25,8 @@ class BaseOptions():
         # dataloading:
         self.parser.add_argument('--extension', type=str, default='.nii', help='file extension (*.nii/*.nii.gz)')
         self.parser.add_argument('--norm_perc', type=float, default=99.95, help='intensity over norm_perc% percentile will be set as 1 while performing 0-1 normalization')
-        self.parser.add_argument('--patch_size', type=tuple, default=(64, 64, 64),
-                                 help='size of 3D patch')
+        self.parser.add_argument('--patch_size', type=str, default='64,64,64',
+                                 help='size of 3D patch (e.g. 64,64,64)')
         self.parser.add_argument('--remove_bg', type=bool, default=True, help='whether to only sample inside the scan (non-zero), requires to have positive value for any foreground pixels')
 
         # for displays
@@ -47,6 +47,11 @@ class BaseOptions():
             id = int(str_id)
             if id >= 0:
                 self.opt.gpu_ids.append(id)
+        
+        # parse patch_size
+        if isinstance(self.opt.patch_size, str):
+            clean_str = self.opt.patch_size.replace('(', '').replace(')', '').replace(' ', '')
+            self.opt.patch_size = tuple([int(x) for x in clean_str.split(',')])
         
         # set gpu ids
         if len(self.opt.gpu_ids) > 0:
