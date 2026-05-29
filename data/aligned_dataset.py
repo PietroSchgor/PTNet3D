@@ -6,7 +6,7 @@
 
 import os.path
 from data.base_dataset import BaseDataset
-from data_util import *
+from data.data_util import *
 import torch
 import nibabel as nib
 import numpy as np
