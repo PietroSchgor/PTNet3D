@@ -119,7 +119,7 @@ class AlignedDataset(BaseDataset):
 
         elif self.opt.dimension.startswith('3'):
             for i in range(3):
-                assert tmp_scansA.shape[i] >= self.opt.patch_size[i], self.A_paths[index] + ' ' + str(
+                assert tmp_scansA.shape[i+1] >= self.opt.patch_size[i], self.A_paths[index] + ' ' + str(
                     i + 1) + ' dimension is smaller than corresponding patch size'
 
             if self.opt.remove_bg:
