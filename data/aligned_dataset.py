@@ -31,6 +31,12 @@ class AlignedDataset(BaseDataset):
 
         all_A_paths = make_dataset(self.dir_A, opt.extension)
         all_B_paths = make_dataset(self.dir_B, opt.extension)
+        
+        # Debug prints per aiutare l'utente su Kaggle
+        if not all_A_paths:
+            print(f"DEBUG: Nessun file trovato in {self.dir_A} con estensione {opt.extension}")
+        if not all_B_paths:
+            print(f"DEBUG: Nessun file trovato in {self.dir_B} con estensione {opt.extension}")
 
         if hasattr(opt, 'code_list') and opt.code_list != '':
             # Load codes from the text file
@@ -41,10 +47,10 @@ class AlignedDataset(BaseDataset):
             self.B_paths = []
             
             for code in codes:
-                # Find matching file in A
-                matched_A = [p for p in all_A_paths if code in os.path.basename(p)]
-                # Find matching file in B
-                matched_B = [p for p in all_B_paths if code in os.path.basename(p)]
+                # Modifica: cerca file che contengono specificamente CODICE_T2w e CODICE_FLAIR (o varianti simili)
+                # Tolleriamo anche se il codice è prefisso, ad es. CODICE_T2w.nii
+                matched_A = [p for p in all_A_paths if f"{code}_T2w" in os.path.basename(p) or code in os.path.basename(p)]
+                matched_B = [p for p in all_B_paths if f"{code}_FLAIR" in os.path.basename(p) or code in os.path.basename(p)]
                 
                 if matched_A and matched_B:
                     # Append the first match
@@ -52,6 +58,10 @@ class AlignedDataset(BaseDataset):
                     self.B_paths.append(matched_B[0])
                 else:
                     print(f"Warning: Could not find matching pairs for code {code}")
+                    if len(all_A_paths) > 0 and codes.index(code) == 0:
+                        print(f"Esempio di file in A: {os.path.basename(all_A_paths[0])}")
+                    if len(all_B_paths) > 0 and codes.index(code) == 0:
+                        print(f"Esempio di file in B: {os.path.basename(all_B_paths[0])}")
         else:
             self.A_paths = sorted(all_A_paths)
             self.B_paths = sorted(all_B_paths)
