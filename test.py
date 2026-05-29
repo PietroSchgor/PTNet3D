@@ -20,10 +20,15 @@ else:
     test_path = os.path.join(opt.dataroot, 'test_A')
 
 des = os.path.join(opt.dataroot, opt.name+'_'+opt.whichmodel)
-if not os.path.exists(des):
-    os.mkdir(des)
+os.makedirs(des, exist_ok=True)
 
 test_lst = [i for i in os.listdir(test_path) if i.endswith(opt.extension)]
+
+# Se l'utente ha specificato una lista di codici, filtriamo i file
+if opt.code_list:
+    with open(opt.code_list, 'r') as f:
+        codes = set([line.strip() for line in f.readlines() if line.strip()])
+    test_lst = [i for i in test_lst if i.split('_')[0] in codes]
 
 with torch.no_grad():
     for i in test_lst:
