@@ -7,7 +7,7 @@
 Take the standard Transformer as T2T Transformer
 """
 import torch.nn as nn
-from timm.models.layers import DropPath
+from timm.layers import DropPath
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.LeakyReLU(negative_slope=0.2),

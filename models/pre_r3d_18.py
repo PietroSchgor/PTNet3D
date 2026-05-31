@@ -12,7 +12,7 @@ class Res3D(torch.nn.Module):
             'layer3.1.relu': 'layer3',
             'layer4.1.relu': 'layer4',
         }
-        res_3d = r3d_18(pretrained=True)
+        res_3d = r3d_18(weights='DEFAULT')
         self.features = create_feature_extractor(res_3d, return_nodes=return_nodes)
 
 

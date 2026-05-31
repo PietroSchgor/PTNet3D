@@ -6,7 +6,7 @@ from torchvision.models import vgg19
 class Vgg16(torch.nn.Module):
     def __init__(self):
         super(Vgg16, self).__init__()
-        features = list(vgg19(pretrained=True).features)[:33]
+        features = list(vgg19(weights='DEFAULT').features)[:33]
         self.features = nn.ModuleList(features).eval()
 
     def forward(self, x):
