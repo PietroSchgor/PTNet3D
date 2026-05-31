@@ -81,7 +81,7 @@ save_delta = total_steps % opt.save_latest_freq
 # Training code
 ##############################################################################
 
-scaler = torch.cuda.amp.GradScaler()
+scaler = torch.amp.GradScaler('cuda')
 
 for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
     epoch_start_time = time.time()
@@ -100,7 +100,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         # Forward Pass with AMP
         ##############################################################################
         
-        with torch.cuda.amp.autocast():
+        with torch.amp.autocast('cuda'):
             input_image = Variable(data['img_A'].cuda(non_blocking=True))
             target_image = Variable(data['img_B'].cuda(non_blocking=True))
 
