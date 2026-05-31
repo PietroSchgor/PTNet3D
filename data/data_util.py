@@ -17,7 +17,10 @@ def _gen_indices(i1, i2, k, s):
 #     return np.clip(img, 0, 1)
 
 def norm_img(img, percentile=100):
-    img = 2 * (img - np.min(img)) / (np.percentile(img, percentile) - np.min(img)) - 1
+    denominator = np.percentile(img, percentile) - np.min(img)
+    if denominator <= 0: # Prevents division by zero and NaNs
+        return np.zeros_like(img)
+    img = 2 * (img - np.min(img)) / denominator - 1
     return np.clip(img, -1, 1)
 
 
