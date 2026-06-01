@@ -54,6 +54,15 @@ print('#training images = %d' % dataset_size)
 ##############################################################################
 
 PTNet, D, ext_discriminator = create_model(opt)
+
+if hasattr(opt, 'resume_G') and opt.resume_G != '':
+    print(f'Loading PTNet (Generator) from {opt.resume_G}...')
+    PTNet.load_state_dict(torch.load(opt.resume_G))
+
+if hasattr(opt, 'resume_D') and opt.resume_D != '':
+    print(f'Loading D (Discriminator) from {opt.resume_D}...')
+    D.load_state_dict(torch.load(opt.resume_D))
+
 PTNet.cuda()
 D.cuda()
 ext_discriminator.cuda()
