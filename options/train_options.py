@@ -16,6 +16,10 @@ class TrainOptions(BaseOptions):
         # for training
 
         self.parser.add_argument('--phase', type=str, default='train', help='train, val, test, etc')
+        self.parser.add_argument('--val_code_list', type=str, default='', help='path to text file containing common codes for pairing validation data')
+        self.parser.add_argument('--val_dir_A', type=str, default='', help='specific path for validation domain A')
+        self.parser.add_argument('--val_dir_B', type=str, default='', help='specific path for validation domain B')
+        self.parser.add_argument('--patience', type=int, default=50, help='number of epochs to wait without improvement before stopping training early')
         self.parser.add_argument('--niter', type=int, default=1000, help='# of iter at starting learning rate')
         self.parser.add_argument('--niter_decay', type=int, default=1000, help='# of iter to linearly decay learning rate to zero')
         self.parser.add_argument('--beta1', type=float, default=0.9, help='momentum term of adam')

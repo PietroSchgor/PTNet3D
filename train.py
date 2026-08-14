@@ -8,7 +8,9 @@ import torch
 from torch.autograd import Variable
 from collections import OrderedDict
 import math
+import copy
 import torch.backends.cudnn as cudnn
+from torch.utils.tensorboard import SummaryWriter
 
 # Ottimizzazione CUDNN: seleziona l'algoritmo di convoluzione più veloce
 # (Perfetto dato che la nostra patch_size è sempre fissa a 64x64x64)
@@ -48,6 +50,26 @@ data_loader = CreateDataLoader(opt)
 dataset = data_loader.load_data()
 dataset_size = len(data_loader)
 print('#training images = %d' % dataset_size)
+
+# Setup TensorBoard
+writer = SummaryWriter(os.path.join(opt.checkpoints_dir, opt.name, 'runs'))
+
+val_dataset_size = 0
+if hasattr(opt, 'val_code_list') and opt.val_code_list != '':
+    val_opt = copy.deepcopy(opt)
+    val_opt.phase = 'val'
+    val_opt.code_list = opt.val_code_list
+    if hasattr(opt, 'val_dir_A') and opt.val_dir_A != '':
+        val_opt.dir_A = opt.val_dir_A
+    if hasattr(opt, 'val_dir_B') and opt.val_dir_B != '':
+        val_opt.dir_B = opt.val_dir_B
+    val_data_loader = CreateDataLoader(val_opt)
+    val_dataset = val_data_loader.load_data()
+    val_dataset_size = len(val_data_loader)
+    print('#validation images = %d' % val_dataset_size)
+
+best_val_loss = float('inf')
+patience_counter = 0
 
 ##############################################################################
 # Initialize networks
@@ -166,6 +188,8 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
             errors = {k: v if not isinstance(v, int) else v for k, v in loss_dict.items()}
             t = (time.time() - iter_start_time) / opt.print_freq
             visualizer.print_current_errors(epoch, epoch_iter, errors, t)
+            for k, v in errors.items():
+                writer.add_scalar(f'Train/{k}', v, total_steps)
 
         # display output images
         if save_fake:
@@ -189,6 +213,36 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
     print('End of epoch %d / %d \t Time Taken: %d sec' %
           (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
 
+    # Validation Loop
+    if hasattr(opt, 'val_code_list') and opt.val_code_list != '' and val_dataset_size > 0:
+        PTNet.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for val_data in val_dataset:
+                val_input = Variable(val_data['img_A'].cuda(non_blocking=True))
+                val_target = Variable(val_data['img_B'].cuda(non_blocking=True))
+                val_generated = PTNet(val_input)
+                val_loss += mse(val_generated, val_target).item()
+        
+        val_loss /= val_dataset_size
+        print(f"Epoch {epoch} - Validation Loss (MSE): {val_loss:.4f}")
+        writer.add_scalar('Val/MSE', val_loss, epoch)
+        
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            patience_counter = 0
+            print(f'Validation loss improved to {best_val_loss:.4f}. Saving best model...')
+            torch.save(PTNet.state_dict(), os.path.join(opt.checkpoints_dir, opt.name, 'PTNet_best.pth'))
+        else:
+            patience_counter += 1
+            print(f'Validation loss did not improve. Patience: {patience_counter}/{opt.patience}')
+            
+        PTNet.train()
+        
+        if patience_counter >= opt.patience:
+            print(f'Early stopping triggered after {epoch} epochs!')
+            break
+
     # save model for this epoch
     if epoch % opt.save_epoch_freq == 0:
         print('saving the model at the end of epoch %d, iters %d' % (epoch, total_steps))
@@ -207,6 +261,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
             param_group['lr'] = ler
 
 print('Training finished! Saving final model...')
+writer.close()
 torch.save(PTNet.state_dict(), os.path.join(opt.checkpoints_dir, opt.name, 'PTNet_final.pth'))
 torch.save(D.state_dict(), os.path.join(opt.checkpoints_dir, opt.name, 'D_final.pth'))
 print('Final model saved in', os.path.join(opt.checkpoints_dir, opt.name))
