@@ -11,6 +11,9 @@ import math
 import copy
 import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
+import random
+import lpips
+from validation_metrics import FSIM, calculate_3d_full_ssim
 
 # Ottimizzazione CUDNN: seleziona l'algoritmo di convoluzione più veloce
 # (Perfetto dato che la nostra patch_size è sempre fissa a 64x64x64)
@@ -98,8 +101,15 @@ optimizer_D = torch.optim.Adam(D.parameters(), lr=opt.lr, betas=(opt.beta1, 0.99
 fake_pool = ImagePool(0)
 
 CE = nn.CrossEntropyLoss()
+mse = nn.MSELoss()
+
+if hasattr(opt, 'val_code_list') and opt.val_code_list != '':
+    print("Inizializzazione modelli percettivi LPIPS e FSIM per la validazione...")
+    lpips_model = lpips.LPIPS(net='alex', verbose=False).cuda()
+    lpips_model.eval()
+    fsim_model = FSIM().cuda()
+    fsim_model.eval()
 criterionGAN = GANLoss(use_lsgan=not False, tensor=torch.cuda.FloatTensor)
-mse = torch.nn.MSELoss()
 
 # training/display parameter
 visualizer = Visualizer(opt)
@@ -216,31 +226,77 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
     # Validation Loop
     if hasattr(opt, 'val_code_list') and opt.val_code_list != '' and val_dataset_size > 0:
         PTNet.eval()
-        val_loss = 0.0
+        val_lpips_list, val_fsim_list, val_ssim_list = [], [], []
+        
         with torch.no_grad():
             for val_data in val_dataset:
                 val_input = Variable(val_data['img_A'].cuda(non_blocking=True))
                 val_target = Variable(val_data['img_B'].cuda(non_blocking=True))
                 val_generated = PTNet(val_input)
-                val_loss += mse(val_generated, val_target).item()
+                
+                batch_size = val_generated.size(0)
+                for b in range(batch_size):
+                    # 1. SSIM su NumPy 3D (H, W, D)
+                    r_np = val_target[b, 0].cpu().numpy()
+                    f_np = val_generated[b, 0].cpu().numpy()
+                    r_np = np.transpose(r_np, (1, 2, 0))
+                    f_np = np.transpose(f_np, (1, 2, 0))
+                    
+                    s_mean, _, _ = calculate_3d_full_ssim(r_np, f_np)
+                    val_ssim_list.append(s_mean)
+                    
+                    # 2. LPIPS e FSIM su subset random di slice
+                    D_dim = val_generated.size(2)
+                    num_slices_perc = min(10, D_dim) # Estrai fino a 10 slice random
+                    slice_indices = random.sample(range(D_dim), num_slices_perc)
+                    
+                    # Forma: (num_slices, 1, H, W)
+                    real_slices = val_target[b:b+1, :, slice_indices, :, :].permute(0, 2, 1, 3, 4).reshape(-1, 1, val_generated.size(3), val_generated.size(4))
+                    fake_slices = val_generated[b:b+1, :, slice_indices, :, :].permute(0, 2, 1, 3, 4).reshape(-1, 1, val_generated.size(3), val_generated.size(4))
+                    
+                    # LPIPS: 3 canali [-1, 1]
+                    real_rgb = real_slices.repeat(1, 3, 1, 1)
+                    fake_rgb = fake_slices.repeat(1, 3, 1, 1)
+                    lpips_score = lpips_model(fake_rgb, real_rgb).mean().item()
+                    val_lpips_list.append(lpips_score)
+                    
+                    # FSIM: range [0, 255]
+                    real_255 = ((real_slices + 1.0) / 2.0) * 255.0
+                    fake_255 = ((fake_slices + 1.0) / 2.0) * 255.0
+                    fsim_score = fsim_model(fake_255, real_255).item()
+                    val_fsim_list.append(fsim_score)
         
-        val_loss /= val_dataset_size
-        print(f"Epoch {epoch} - Validation Loss (MSE): {val_loss:.4f}")
-        writer.add_scalar('Val/MSE', val_loss, epoch)
+        avg_lpips = np.mean(val_lpips_list)
+        avg_fsim = np.mean(val_fsim_list)
+        avg_ssim = np.mean(val_ssim_list)
+        
+        # Calcolo Loss Composita per Early Stopping
+        val_loss = 1.0 * avg_lpips + 0.5 * (1.0 - avg_fsim) + 0.5 * (1.0 - avg_ssim)
+        
+        print(f"Epoch {epoch} - Validation Metrics:")
+        print(f"  LPIPS: {avg_lpips:.4f} (peso 1.0, ↓ meglio)")
+        print(f"  FSIM:  {avg_fsim:.4f} (peso 0.5, ↑ meglio)")
+        print(f"  SSIM:  {avg_ssim:.4f} (peso 0.5, ↑ meglio)")
+        print(f"  Composite Loss: {val_loss:.4f}")
+        
+        writer.add_scalar('Val/Loss_Weighted', val_loss, epoch)
+        writer.add_scalar('Val/LPIPS', avg_lpips, epoch)
+        writer.add_scalar('Val/FSIM', avg_fsim, epoch)
+        writer.add_scalar('Val/SSIM', avg_ssim, epoch)
         
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             patience_counter = 0
-            print(f'Validation loss improved to {best_val_loss:.4f}. Saving best model...')
+            print(f'Validation loss migliorata a {best_val_loss:.4f}. Salvataggio miglior modello...')
             torch.save(PTNet.state_dict(), os.path.join(opt.checkpoints_dir, opt.name, 'PTNet_best.pth'))
         else:
             patience_counter += 1
-            print(f'Validation loss did not improve. Patience: {patience_counter}/{opt.patience}')
+            print(f'Nessun miglioramento. Pazienza: {patience_counter}/{opt.patience}')
             
         PTNet.train()
         
         if patience_counter >= opt.patience:
-            print(f'Early stopping triggered after {epoch} epochs!')
+            print(f'Early stopping attivato all\'epoca {epoch}!')
             break
 
     # save model for this epoch
