@@ -267,22 +267,28 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
                     val_fsim_list.append(fsim_score)
         
         avg_lpips = np.mean(val_lpips_list)
+        std_lpips = np.std(val_lpips_list)
         avg_fsim = np.mean(val_fsim_list)
+        std_fsim = np.std(val_fsim_list)
         avg_ssim = np.mean(val_ssim_list)
+        std_ssim = np.std(val_ssim_list)
         
         # Calcolo Loss Composita per Early Stopping
         val_loss = 1.0 * avg_lpips + 0.5 * (1.0 - avg_fsim) + 0.5 * (1.0 - avg_ssim)
         
         print(f"Epoch {epoch} - Validation Metrics:")
-        print(f"  LPIPS: {avg_lpips:.4f} (peso 1.0, ↓ meglio)")
-        print(f"  FSIM:  {avg_fsim:.4f} (peso 0.5, ↑ meglio)")
-        print(f"  SSIM:  {avg_ssim:.4f} (peso 0.5, ↑ meglio)")
+        print(f"  LPIPS: {avg_lpips:.4f} ± {std_lpips:.4f} (peso 1.0, ↓ meglio)")
+        print(f"  FSIM:  {avg_fsim:.4f} ± {std_fsim:.4f} (peso 0.5, ↑ meglio)")
+        print(f"  SSIM:  {avg_ssim:.4f} ± {std_ssim:.4f} (peso 0.5, ↑ meglio)")
         print(f"  Composite Loss: {val_loss:.4f}")
         
         writer.add_scalar('Val/Loss_Weighted', val_loss, epoch)
         writer.add_scalar('Val/LPIPS', avg_lpips, epoch)
+        writer.add_scalar('Val/LPIPS_std', std_lpips, epoch)
         writer.add_scalar('Val/FSIM', avg_fsim, epoch)
+        writer.add_scalar('Val/FSIM_std', std_fsim, epoch)
         writer.add_scalar('Val/SSIM', avg_ssim, epoch)
+        writer.add_scalar('Val/SSIM_std', std_ssim, epoch)
         
         if val_loss < best_val_loss:
             best_val_loss = val_loss
