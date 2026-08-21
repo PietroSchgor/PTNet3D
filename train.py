@@ -247,7 +247,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
                     
                     # 2. LPIPS e FSIM su subset random di slice
                     D_dim = val_generated.size(2)
-                    num_slices_perc = min(10, D_dim) # Estrai fino a 10 slice random
+                    num_slices_perc = min(20, D_dim) # Estrai fino a 20 slice random
                     slice_indices = random.sample(range(D_dim), num_slices_perc)
                     
                     # Forma: (num_slices, 1, H, W)
