@@ -274,12 +274,12 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         std_ssim = np.std(val_ssim_list)
         
         # Calcolo Loss Composita per Early Stopping
-        val_loss = 1.0 * avg_lpips + 0.5 * (1.0 - avg_fsim) + 0.5 * (1.0 - avg_ssim)
+        val_loss = 1.0 * avg_lpips + 1.0 * (1.0 - avg_fsim) + 1.0 * (1.0 - avg_ssim)
         
         print(f"Epoch {epoch} - Validation Metrics:")
         print(f"  LPIPS: {avg_lpips:.4f} ± {std_lpips:.4f} (peso 1.0, ↓ meglio)")
-        print(f"  FSIM:  {avg_fsim:.4f} ± {std_fsim:.4f} (peso 0.5, ↑ meglio)")
-        print(f"  SSIM:  {avg_ssim:.4f} ± {std_ssim:.4f} (peso 0.5, ↑ meglio)")
+        print(f"  FSIM:  {avg_fsim:.4f} ± {std_fsim:.4f} (peso 1.0, ↑ meglio)")
+        print(f"  SSIM:  {avg_ssim:.4f} ± {std_ssim:.4f} (peso 1.0, ↑ meglio)")
         print(f"  Composite Loss: {val_loss:.4f}")
         
         writer.add_scalar('Val/Loss_Weighted', val_loss, epoch)
