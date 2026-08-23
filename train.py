@@ -73,6 +73,15 @@ if hasattr(opt, 'val_code_list') and opt.val_code_list != '':
 
 best_val_loss = float('inf')
 patience_counter = 0
+es_path = os.path.join(opt.checkpoints_dir, opt.name, 'early_stopping.txt')
+if hasattr(opt, 'resume_G') and opt.resume_G != '' and os.path.exists(es_path):
+    try:
+        es_data = np.loadtxt(es_path, delimiter=',')
+        best_val_loss = float(es_data[0])
+        patience_counter = int(es_data[1])
+        print(f"Resuming early stopping state: best_val_loss={best_val_loss:.4f}, patience={patience_counter}")
+    except Exception as e:
+        print(f"Could not load early stopping state: {e}")
 
 ##############################################################################
 # Initialize networks
@@ -274,12 +283,12 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         std_ssim = np.std(val_ssim_list)
         
         # Calcolo Loss Composita per Early Stopping
-        val_loss = 1.0 * avg_lpips + 1.0 * (1.0 - avg_fsim) + 1.0 * (1.0 - avg_ssim)
+        val_loss = opt.weight_lpips * avg_lpips + opt.weight_fsim * (1.0 - avg_fsim) + opt.weight_ssim * (1.0 - avg_ssim)
         
         print(f"Epoch {epoch} - Validation Metrics:")
-        print(f"  LPIPS: {avg_lpips:.4f} ± {std_lpips:.4f} (peso 1.0, ↓ meglio)")
-        print(f"  FSIM:  {avg_fsim:.4f} ± {std_fsim:.4f} (peso 1.0, ↑ meglio)")
-        print(f"  SSIM:  {avg_ssim:.4f} ± {std_ssim:.4f} (peso 1.0, ↑ meglio)")
+        print(f"  LPIPS: {avg_lpips:.4f} ± {std_lpips:.4f} (peso {opt.weight_lpips:.1f}, ↓ meglio)")
+        print(f"  FSIM:  {avg_fsim:.4f} ± {std_fsim:.4f} (peso {opt.weight_fsim:.1f}, ↑ meglio)")
+        print(f"  SSIM:  {avg_ssim:.4f} ± {std_ssim:.4f} (peso {opt.weight_ssim:.1f}, ↑ meglio)")
         print(f"  Composite Loss: {val_loss:.4f}")
         
         writer.add_scalar('Val/Loss_Weighted', val_loss, epoch)
@@ -298,6 +307,9 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         else:
             patience_counter += 1
             print(f'Nessun miglioramento. Pazienza: {patience_counter}/{opt.patience}')
+            
+        # Salva lo stato dell'early stopping
+        np.savetxt(es_path, (best_val_loss, patience_counter), delimiter=',', fmt='%f')
             
         PTNet.train()
         
