@@ -118,6 +118,9 @@ if hasattr(opt, 'resume_D') and opt.resume_D != '':
 PTNet.cuda()
 D.cuda()
 ext_discriminator.cuda()
+ext_discriminator.eval()
+for param in ext_discriminator.parameters():
+    param.requires_grad = False
 
 ##############################################################################
 # Initialize util components
