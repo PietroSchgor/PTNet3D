@@ -20,6 +20,7 @@ class TrainOptions(BaseOptions):
         self.parser.add_argument('--val_dir_A', type=str, default='', help='specific path for validation domain A')
         self.parser.add_argument('--val_dir_B', type=str, default='', help='specific path for validation domain B')
         self.parser.add_argument('--patience', type=int, default=50, help='number of epochs to wait without improvement before stopping training early')
+        self.parser.add_argument('--early_stopping_file', type=str, default='', help='path to a previous early_stopping.txt file to resume patience state')
         self.parser.add_argument('--weight_lpips', type=float, default=1.0, help='weight for LPIPS metric in early stopping')
         self.parser.add_argument('--weight_fsim', type=float, default=1.0, help='weight for FSIM metric in early stopping')
         self.parser.add_argument('--weight_ssim', type=float, default=1.0, help='weight for SSIM metric in early stopping')

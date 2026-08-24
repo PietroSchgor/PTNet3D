@@ -73,15 +73,21 @@ if hasattr(opt, 'val_code_list') and opt.val_code_list != '':
 
 best_val_loss = float('inf')
 patience_counter = 0
+
+# Path di salvataggio nella nuova sessione
 es_path = os.path.join(opt.checkpoints_dir, opt.name, 'early_stopping.txt')
-if hasattr(opt, 'resume_G') and opt.resume_G != '' and os.path.exists(es_path):
+
+# Path di caricamento: usa quello passato da terminale, altrimenti usa es_path
+load_es_path = opt.early_stopping_file if hasattr(opt, 'early_stopping_file') and opt.early_stopping_file != '' else es_path
+
+if hasattr(opt, 'resume_G') and opt.resume_G != '' and os.path.exists(load_es_path):
     try:
-        es_data = np.loadtxt(es_path, delimiter=',')
+        es_data = np.loadtxt(load_es_path, delimiter=',')
         best_val_loss = float(es_data[0])
         patience_counter = int(es_data[1])
-        print(f"Resuming early stopping state: best_val_loss={best_val_loss:.4f}, patience={patience_counter}")
+        print(f"Resuming early stopping state from {load_es_path}: best_val_loss={best_val_loss:.4f}, patience={patience_counter}")
     except Exception as e:
-        print(f"Could not load early stopping state: {e}")
+        print(f"Could not load early stopping state from {load_es_path}: {e}")
 
 ##############################################################################
 # Initialize networks
