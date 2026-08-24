@@ -36,6 +36,18 @@ def lcm(a, b): return abs(a * b) / math.gcd(a, b) if a and b else 0
 opt = TrainOptions().parse()
 iter_path = os.path.join(opt.checkpoints_dir, opt.name, 'iter.txt')
 start_epoch, epoch_iter = 1, 0
+
+# Caricamento epoche in caso di resume
+load_iter_path = opt.iter_file if hasattr(opt, 'iter_file') and opt.iter_file != '' else iter_path
+if hasattr(opt, 'resume_G') and opt.resume_G != '' and os.path.exists(load_iter_path):
+    try:
+        iter_data = np.loadtxt(load_iter_path, delimiter=',')
+        start_epoch = int(iter_data[0])
+        epoch_iter = int(iter_data[1])
+        print(f"Resuming from epoch {start_epoch}, iter {epoch_iter} from {load_iter_path}")
+    except Exception as e:
+        print(f"Could not load iter state from {load_iter_path}: {e}")
+
 opt.print_freq = lcm(opt.print_freq, opt.batchSize)
 if opt.debug:
     opt.display_freq = 1
